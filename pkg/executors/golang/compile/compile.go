@@ -168,8 +168,6 @@ func compileWithDagger(ctx context.Context, ui *ui.UI, shuttlelocaldir string) (
 		Include: []string{},
 	})
 
-	log.Printf("shuttlelocaldir: %s", shuttlelocaldir)
-
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("dagger failed to get your current dir: %w", err)

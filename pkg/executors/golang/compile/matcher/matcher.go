@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"runtime"
 
 	"github.com/lunarway/shuttle/pkg/executors/golang/discover"
 	"github.com/lunarway/shuttle/pkg/ui"
@@ -42,6 +43,9 @@ func BinaryMatches(
 	binary := entries[0]
 
 	expectedPath := fmt.Sprintf("actions-%s", hex.EncodeToString([]byte(hash)[:16]))
+	if runtime.GOOS == "windows" {
+		expectedPath = fmt.Sprintf("%s.exe", expectedPath)
+	}
 	actualName := binary.Name()
 	if actualName == expectedPath {
 		return path.Join(shuttlebindir, binary.Name()), true, nil

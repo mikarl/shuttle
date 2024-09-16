@@ -2,10 +2,12 @@ package codegen
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 
 	"github.com/lunarway/shuttle/pkg/ui"
 )
@@ -24,5 +26,10 @@ func CompileBinary(ctx context.Context, ui *ui.UI, shuttlelocaldir string) (stri
 		return "", err
 	}
 
-	return path.Join(shuttlelocaldir, "tmp", "actions"), nil
+	binaryName := "actions"
+	if runtime.GOOS == "windows" {
+		binaryName = fmt.Sprintf("%s.exe", binaryName)
+	}
+
+	return path.Join(shuttlelocaldir, "tmp", binaryName), nil
 }

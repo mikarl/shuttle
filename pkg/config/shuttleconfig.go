@@ -65,6 +65,11 @@ func (c *ShuttleProjectContext) Setup(
 	}
 
 	c.TempDirectoryPath = path.Join(c.LocalShuttleDirectoryPath, "temp")
+	err = os.MkdirAll(c.TempDirectoryPath, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("create '%s' directory: %w", c.TempDirectoryPath, err)
+	}
+
 	c.LocalPlanPath, err = FetchPlan(
 		c.Config.Plan,
 		projectPath,

@@ -93,8 +93,6 @@ func newTemplate(uii *ui.UI, contextProvider contextProvider) *cobra.Command {
 			if templateOutput == "" {
 				output = cmd.OutOrStdout()
 			} else {
-				// TODO: This is probably not the right place to initialize the temp dir?
-				os.MkdirAll(projectContext.TempDirectoryPath, os.ModePerm)
 				templateOutputPath := path.Join(projectContext.TempDirectoryPath, templateOutput)
 				file, err := os.Create(templateOutputPath)
 				if err != nil {

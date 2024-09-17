@@ -44,14 +44,17 @@ func setupTaskCommandEnvironmentVariables(execCmd *cmd.Cmd, context ActionExecut
 	execCmd.Env = append(
 		execCmd.Env,
 		fmt.Sprintf("plan=%s", context.ScriptContext.Project.LocalPlanPath),
+		fmt.Sprintf("shuttle_plan=%s", context.ScriptContext.Project.LocalPlanPath),
 	)
 	execCmd.Env = append(
 		execCmd.Env,
 		fmt.Sprintf("tmp=%s", context.ScriptContext.Project.TempDirectoryPath),
+		fmt.Sprintf("shuttle_tmp=%s", context.ScriptContext.Project.TempDirectoryPath),
 	)
 	execCmd.Env = append(
 		execCmd.Env,
 		fmt.Sprintf("project=%s", context.ScriptContext.Project.ProjectPath),
+		fmt.Sprintf("shuttle_project=%s", context.ScriptContext.Project.ProjectPath),
 	)
 	// TODO: Add project path as a shuttle specific ENV
 	execCmd.Env = append(

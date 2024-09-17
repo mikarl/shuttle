@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/go-cmd/cmd"
 
@@ -40,7 +43,10 @@ func executeShell(ctx context.Context, ui *ui.UI, context ActionExecutionContext
 		strings.Join(cmdArgs, " "),
 	)
 
-	setupCommandEnvironmentVariables(execCmd, context)
+	err := setupCommandEnvironmentVariables(execCmd, context)
+	if err != nil {
+		return fmt.Errorf("failed setting up cmd env variables: %w", err)
+	}
 
 	execCmd.Env = append(
 		execCmd.Env,
@@ -104,8 +110,15 @@ func executeShell(ctx context.Context, ui *ui.UI, context ActionExecutionContext
 	}
 }
 
-func setupCommandEnvironmentVariables(execCmd *cmd.Cmd, context ActionExecutionContext) {
+func setupCommandEnvironmentVariables(execCmd *cmd.Cmd, context ActionExecutionContext) error {
 	shuttlePath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+
+	// on Windows shell scripts rely on Git Bash, and for path provided as env vars to work in this context
+	// they need be in unix format
+	shPathForGitBashOnWindows, err := resolveShPathForWindows(context.ScriptContext.Project.ProjectPath)
+	if err != nil {
+		return err
+	}
 
 	execCmd.Env = os.Environ()
 	for name, value := range context.ScriptContext.Args {
@@ -113,15 +126,30 @@ func setupCommandEnvironmentVariables(execCmd *cmd.Cmd, context ActionExecutionC
 	}
 	execCmd.Env = append(
 		execCmd.Env,
-		fmt.Sprintf("plan=%s", context.ScriptContext.Project.LocalPlanPath),
+		fmt.Sprintf("shuttle_plan=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.LocalPlanPath)),
+		fmt.Sprintf("plan=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.LocalPlanPath)),
 	)
 	execCmd.Env = append(
 		execCmd.Env,
-		fmt.Sprintf("tmp=%s", context.ScriptContext.Project.TempDirectoryPath),
+		fmt.Sprintf("shuttle_tmp=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.TempDirectoryPath)),
+		fmt.Sprintf("tmp=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.TempDirectoryPath)),
 	)
 	execCmd.Env = append(
 		execCmd.Env,
-		fmt.Sprintf("project=%s", context.ScriptContext.Project.ProjectPath),
+		fmt.Sprintf("project=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.ProjectPath)),
+		fmt.Sprintf("shuttle_project=%s", replaceWindowsPathSegmentIfNeeded(
+			context.ScriptContext.Project.ProjectPath,
+			shPathForGitBashOnWindows, context.ScriptContext.Project.ProjectPath)),
 	)
 	// TODO: Add project path as a shuttle specific ENV
 	execCmd.Env = append(
@@ -139,4 +167,32 @@ func setupCommandEnvironmentVariables(execCmd *cmd.Cmd, context ActionExecutionC
 		execCmd.Env,
 		"SHUTTLE_INTERACTIVE=default",
 	)
+	return nil
+}
+
+func resolveShPathForWindows(projectPath string) (string, error) {
+	shPathWindows := ""
+	if runtime.GOOS == "windows" {
+		// cygpath is a tool provided by Git Bash for windows, for converting paths between windows and unix format
+		cmd := exec.Command("cygpath")
+		// as per the os/exec docs escaping of args on Windows might require using SysProcAttr.CmdLine directly,
+		// which is the case in this scenario
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			CmdLine: fmt.Sprintf(`cygpath -u "%s"`, projectPath),
+		}
+		cmd.Env = os.Environ()
+		shPath, err := cmd.CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("failed converting windows path to unix style path, %w", err)
+		}
+		shPathWindows = strings.TrimSuffix(string(shPath), "\n")
+	}
+	return shPathWindows, nil
+}
+
+func replaceWindowsPathSegmentIfNeeded(windowsPathSegment, shPathReplacement, originalPath string) string {
+	if runtime.GOOS == "windows" {
+		return strings.Replace(originalPath, windowsPathSegment, shPathReplacement, -1)
+	}
+	return originalPath
 }
